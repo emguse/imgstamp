@@ -1,0 +1,6 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Keep repository instructions bounded; read design documents when relevant.
+project_doc_max_bytes = 32768
+
+# Model, permissions, and network policy inherit from the user's environment.

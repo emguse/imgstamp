@@ -1,0 +1,60 @@
+# 未実装の設定例。
+# 画像ファイルとフォントは同梱していない。利用環境に合わせて変更する。
+# 相対画像パスは、この設定ファイルの位置を基準に解決する。
+
+[output]
+color_mode = "grayscale" # "color" でカラー出力
+
+[paper_detection]
+tolerance_percent = 2.0 # 変更可能な初期値。実データによる検証は未実施
+
+# 以下は300dpi換算の仮値。実際の出力システムに合わせて変更する。
+# 元の図面サイズではなく、PDFで出力する用紙を paper に指定する。
+# 同じ用紙に複数ルールを登録できるが、複数ルールへの一致はエラー。
+[[paper_detection.rules]]
+name = "A1-300dpi"
+short_px = 7016
+long_px = 9933
+paper = "A1"
+
+[[paper_detection.rules]]
+name = "A2-300dpi"
+short_px = 4961
+long_px = 7016
+paper = "A2"
+
+[[paper_detection.rules]]
+name = "A3-300dpi"
+short_px = 3508
+long_px = 4961
+paper = "A3"
+# tolerance_percent = 1.0 # 必要な場合だけ共通値を上書き（0〜10%）
+
+[[paper_detection.rules]]
+name = "A4-300dpi"
+short_px = 2480
+long_px = 3508
+paper = "A4"
+
+[stamp]
+image = "./seal.png" # 利用者が用意した透過PNGへ変更する
+# width_px = 440 # 省略時は原寸。指定時は縦横比を維持する
+position = "bottom-right"
+margin_x_px = 24 # 例示値。省略時の初期値は16px
+margin_y_px = 24 # 例示値。省略時の初期値は16px
+# 不透明度は0（透明）〜1（不透明）。以下は試し刷りで調整する初期値。
+background_opacity = 0.5
+image_opacity = 0.8
+
+[stamp.text]
+value = "○○プロジェクト 確認済"
+font = "利用可能なフォント名" # 実装後の imgstamp fonts で確認して変更する
+size_px = 32 # 必須の例示値。省略時の初期値ではない
+color = "#000000"
+opacity = 0.8
+# 以下は例示値。サイズ変更後の印影の記入欄に合わせて調整する。
+# 文字は左揃え・上下中央。はみ出しは自動縮小せずエラーにする。
+box_x_px = 20
+box_y_px = 50
+box_width_px = 400
+box_height_px = 60
