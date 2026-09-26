@@ -1,0 +1,8 @@
+/bin/
+/dist/
+/tmp/
+/output/
+/coverage.out
+/imgstamp
+/imgstamp.exe
+.DS_Store
