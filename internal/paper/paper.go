@@ -30,6 +30,9 @@ type Size struct {
 
 var sizes = map[string][2]float64{"A1": {594, 841}, "A2": {420, 594}, "A3": {297, 420}, "A4": {210, 297}}
 
+// ValidName reports whether name is one of the supported output paper sizes.
+func ValidName(name string) bool { _, ok := sizes[name]; return ok }
+
 // ValidTolerance reports whether a percentage is finite and within 0..10.
 func ValidTolerance(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0 && v <= 10 }
 

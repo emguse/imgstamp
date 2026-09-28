@@ -50,6 +50,7 @@ image_opacity = 0.8
 value = "○○プロジェクト 確認済"
 font = "利用可能なフォント名" # imgstamp fonts で確認して変更する
 size_px = 32 # 必須の例示値。省略時の初期値ではない
+rotation_deg = 0 # 時計回り。0 / 90 / 180 / 270
 color = "#000000"
 opacity = 0.8
 # 以下は例示値。サイズ変更後の印影の記入欄に合わせて調整する。
@@ -58,3 +59,8 @@ box_x_px = 20
 box_y_px = 50
 box_width_px = 400
 box_height_px = 60
+
+# 用紙別の上書き。省略した軸はstampの共通余白を使用する。
+[stamp.paper_margins.A1]
+margin_x_px = 40
+margin_y_px = 40

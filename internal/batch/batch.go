@@ -236,7 +236,7 @@ func convert(ctx context.Context, path, target string, o Options) error {
 		if err != nil {
 			return fmt.Errorf("page %d: %w", count, err)
 		}
-		composite, err := o.Stamp.Apply(ctx, img)
+		composite, err := o.Stamp.Apply(ctx, img, size.Name)
 		if err != nil {
 			return fmt.Errorf("page %d: %w", count, err)
 		}

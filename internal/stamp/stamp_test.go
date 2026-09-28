@@ -59,7 +59,7 @@ func TestOverlayAndSourceUnchanged(t *testing.T) {
 			src.SetRGBA(x, y, color.RGBA{A: 255})
 		}
 	}
-	dst, err := p.Apply(context.Background(), src)
+	dst, err := p.Apply(context.Background(), src, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestNinePositions(t *testing.T) {
 				}
 			}
 			p := Prepared{overlay, config.Stamp{Position: pos, MarginX: 1, MarginY: 2}}
-			out, err := p.Apply(context.Background(), image.NewRGBA(image.Rect(0, 0, 10, 10)))
+			out, err := p.Apply(context.Background(), image.NewRGBA(image.Rect(0, 0, 10, 10)), "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -110,10 +110,129 @@ func TestTextOnlyAndPageOverflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Apply(context.Background(), image.NewGray(image.Rect(0, 0, 10, 10))); err == nil {
+	if _, err := p.Apply(context.Background(), image.NewGray(image.Rect(0, 0, 10, 10)), ""); err == nil {
 		t.Fatal("stamp overflow accepted")
 	}
-	if _, err := p.Apply(context.Background(), image.NewGray(image.Rect(0, 0, 100, 100))); err != nil {
+	if _, err := p.Apply(context.Background(), image.NewGray(image.Rect(0, 0, 100, 100)), ""); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPaperSpecificMargins(t *testing.T) {
+	positions := map[string]image.Point{"A1": {3, 4}, "A2": {1, 2}}
+	x, y := 3, 4
+	overlay := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for py := 0; py < 2; py++ {
+		for px := 0; px < 2; px++ {
+			overlay.Set(px, py, color.Black)
+		}
+	}
+	p := Prepared{overlay, config.Stamp{Position: "top-left", MarginX: 1, MarginY: 2, PaperMargins: map[string]config.PaperMargin{"A1": {X: &x, Y: &y}}}}
+	for paper, origin := range positions {
+		out, err := p.Apply(context.Background(), image.NewRGBA(image.Rect(0, 0, 10, 10)), paper)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := out.RGBAAt(origin.X, origin.Y); got.R != 0 || got.G != 0 || got.B != 0 {
+			t.Fatalf("%s stamp did not start at %v: %v", paper, origin, got)
+		}
+	}
+}
+
+func TestTextRotation(t *testing.T) {
+	boxes := map[int]image.Rectangle{}
+	for _, degrees := range []int{0, 90, 180, 270} {
+		s := textSettings()
+		s.Text.Value = "Test"
+		s.Text.Size = 16
+		s.Text.Width, s.Text.Height = 80, 50
+		s.Text.Rotation = degrees
+		p, err := PrepareWithFont(context.Background(), s, resolver)
+		if err != nil {
+			t.Fatalf("rotation %d: %v", degrees, err)
+		}
+		boxes[degrees] = nontransparentBounds(p.overlay)
+	}
+	if boxes[90].Dx() != boxes[0].Dy() || boxes[90].Dy() != boxes[0].Dx() {
+		t.Fatalf("90 degree bounds %v do not swap 0 degree bounds %v", boxes[90], boxes[0])
+	}
+	if boxes[270].Dx() != boxes[0].Dy() || boxes[270].Dy() != boxes[0].Dx() {
+		t.Fatalf("270 degree bounds %v do not swap 0 degree bounds %v", boxes[270], boxes[0])
+	}
+	if boxes[180].Dx() != boxes[0].Dx() || boxes[180].Dy() != boxes[0].Dy() {
+		t.Fatalf("180 degree bounds %v differ from 0 degree bounds %v", boxes[180], boxes[0])
+	}
+	for _, degrees := range []int{90, 180, 270} {
+		b := boxes[degrees]
+		if b.Min.X < 0 || b.Min.Y < 0 || b.Max.X > 80 || b.Max.Y > 50 {
+			t.Fatalf("rotation %d was not centered in the text box: %v", degrees, b)
+		}
+	}
+}
+
+func nontransparentBounds(img *image.RGBA) image.Rectangle {
+	var bounds image.Rectangle
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			if img.RGBAAt(x, y).A == 0 {
+				continue
+			}
+			if bounds.Empty() {
+				bounds = image.Rect(x, y, x+1, y+1)
+			} else {
+				bounds = bounds.Union(image.Rect(x, y, x+1, y+1))
+			}
+		}
+	}
+	return bounds
+}
+
+func TestRotatedTextMustFitBox(t *testing.T) {
+	s := textSettings()
+	s.Text.Width, s.Text.Height = 10, 10
+	s.Text.Rotation = 90
+	if _, err := PrepareWithFont(context.Background(), s, resolver); err == nil {
+		t.Fatal("rotated text exceeding its box was accepted")
+	}
+}
+
+func TestRotateTextDirections(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 2, 3))
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 2; x++ {
+			src.SetRGBA(x, y, color.RGBA{R: uint8(y*2 + x + 1), A: 255})
+		}
+	}
+	for _, tc := range []struct {
+		degrees int
+		want    []uint8
+	}{
+		{90, []uint8{5, 3, 1, 6, 4, 2}},
+		{180, []uint8{6, 5, 4, 3, 2, 1}},
+		{270, []uint8{2, 4, 6, 1, 3, 5}},
+	} {
+		got := rotateText(src, tc.degrees)
+		var values []uint8
+		for y := 0; y < got.Bounds().Dy(); y++ {
+			for x := 0; x < got.Bounds().Dx(); x++ {
+				values = append(values, got.RGBAAt(x, y).R)
+			}
+		}
+		if len(values) != len(tc.want) {
+			t.Fatalf("rotation %d dimensions: got %v, want %v", tc.degrees, values, tc.want)
+		}
+		for i := range values {
+			if values[i] != tc.want[i] {
+				t.Fatalf("rotation %d pixels: got %v, want %v", tc.degrees, values, tc.want)
+			}
+		}
+	}
+}
+
+func TestPrepareRejectsInvalidRotation(t *testing.T) {
+	s := textSettings()
+	s.Text.Rotation = 45
+	if _, err := PrepareWithFont(context.Background(), s, resolver); err == nil {
+		t.Fatal("unsupported text rotation was accepted")
 	}
 }
