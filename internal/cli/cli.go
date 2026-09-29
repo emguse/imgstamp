@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"unicode/utf8"
 
 	"github.com/emguse/imgstamp/internal/batch"
 	"github.com/emguse/imgstamp/internal/config"
@@ -44,8 +45,10 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, version s
 	configPath := flags.String("config", "", "TOML configuration file")
 	input := flags.String("input", "", "input directory (direct children only)")
 	output := flags.String("output", "", "separate output directory")
+	textOverride := flags.String("text", "", "override stamp text (same character count as configured text)")
+	shrink := flags.Bool("shrink", false, "reduce A1/A2 to A3 and A3 to A4")
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: imgstamp --config FILE --input DIR --output DIR\n       imgstamp fonts\n       imgstamp --version")
+		fmt.Fprintln(stderr, "Usage: imgstamp --config FILE --input DIR --output DIR [--shrink] [--text VALUE]\n       imgstamp fonts\n       imgstamp --version")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -63,12 +66,24 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, version s
 		fmt.Fprintln(stderr, err)
 		return 2
 	}
+	textOverrideSet := false
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "text" {
+			textOverrideSet = true
+		}
+	})
+	if textOverrideSet {
+		if err := overrideText(&cfg, *textOverride); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
+	}
 	overlay, err := stamp.Prepare(ctx, cfg.Stamp)
 	if err != nil {
 		fmt.Fprintln(stderr, "prepare stamp:", err)
 		return errorCode(ctx)
 	}
-	result, err := batch.Run(ctx, batch.Options{Input: *input, Output: *output, Config: cfg, Stamp: overlay, Report: func(e batch.Event) {
+	result, err := batch.Run(ctx, batch.Options{Input: *input, Output: *output, Config: cfg, Stamp: overlay, Shrink: *shrink, Report: func(e batch.Event) {
 		if e.Err != nil {
 			fmt.Fprintf(stderr, "failed %q: %v\n", e.File, e.Err)
 		} else if e.Page > 0 {
@@ -95,4 +110,22 @@ func errorCode(ctx context.Context) int {
 		return 130
 	}
 	return 2
+}
+
+func overrideText(cfg *config.Config, value string) error {
+	if cfg.Stamp.Text == nil {
+		return fmt.Errorf("--text requires stamp.text in the configuration")
+	}
+	if utf8.RuneCountInString(value) != utf8.RuneCountInString(cfg.Stamp.Text.Value) {
+		return fmt.Errorf("--text must have the same character count as stamp.text.value")
+	}
+	updated := *cfg
+	text := *cfg.Stamp.Text
+	text.Value = value
+	updated.Stamp.Text = &text
+	if err := updated.Validate(); err != nil {
+		return fmt.Errorf("--text: %w", err)
+	}
+	*cfg = updated
+	return nil
 }

@@ -36,6 +36,17 @@ func TestTextValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestSameLengthReplacementMustStillFitTextBox(t *testing.T) {
+	s := textSettings()
+	s.Text.Value = "WWWW"
+	s.Text.Size = 20
+	s.Text.Width = 30
+	if _, err := PrepareWithFont(context.Background(), s, resolver); err == nil {
+		t.Fatal("accepted same-length text that exceeds its configured box")
+	}
+}
+
 func TestOverlayAndSourceUnchanged(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "seal.png")
@@ -115,6 +126,45 @@ func TestTextOnlyAndPageOverflow(t *testing.T) {
 	}
 	if _, err := p.Apply(context.Background(), image.NewGray(image.Rect(0, 0, 100, 100)), ""); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestApplyScaledShrinksPageAndKeepsStampPixels(t *testing.T) {
+	overlay := image.NewRGBA(image.Rect(0, 0, 6, 4))
+	for y := 0; y < overlay.Bounds().Dy(); y++ {
+		for x := 0; x < overlay.Bounds().Dx(); x++ {
+			overlay.SetRGBA(x, y, color.RGBA{R: 0, A: 255})
+		}
+	}
+	p := Prepared{overlay: overlay, settings: config.Stamp{Position: "top-left"}}
+	src := image.NewRGBA(image.Rect(0, 0, 40, 20))
+	for y := 0; y < src.Bounds().Dy(); y++ {
+		for x := 0; x < src.Bounds().Dx(); x++ {
+			src.SetRGBA(x, y, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+		}
+	}
+
+	got, err := p.ApplyScaled(context.Background(), src, "A4", .5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Bounds() != image.Rect(0, 0, 20, 10) {
+		t.Fatalf("scaled bounds = %v, want 20x10", got.Bounds())
+	}
+	if got.RGBAAt(5, 3).R != 0 {
+		t.Fatal("stamp was scaled down with the page")
+	}
+	if got.RGBAAt(6, 3).R != 255 {
+		t.Fatal("stamp extends past its configured pixel width")
+	}
+}
+
+func TestApplyScaledRejectsInvalidScale(t *testing.T) {
+	p := Prepared{overlay: image.NewRGBA(image.Rect(0, 0, 1, 1)), settings: config.Stamp{Position: "top-left"}}
+	for _, scale := range []float64{0, -1, 1.1} {
+		if _, err := p.ApplyScaled(context.Background(), image.NewRGBA(image.Rect(0, 0, 2, 2)), "A4", scale); err == nil {
+			t.Fatalf("accepted scale %v", scale)
+		}
 	}
 }
 

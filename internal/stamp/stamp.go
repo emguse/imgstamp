@@ -186,8 +186,17 @@ func alpha(v float64) uint8 { return uint8(math.Round(v * 255)) }
 
 // Apply composites onto an opaque white-backed copy without changing src.
 func (p *Prepared) Apply(ctx context.Context, src image.Image, paper string) (*image.RGBA, error) {
+	return p.ApplyScaled(ctx, src, paper, 1)
+}
+
+// ApplyScaled downsizes the page before applying the unchanged stamp overlay.
+// A scale of 1 preserves the source dimensions; values between 0 and 1 shrink.
+func (p *Prepared) ApplyScaled(ctx context.Context, src image.Image, paper string, scale float64) (*image.RGBA, error) {
+	if math.IsNaN(scale) || math.IsInf(scale, 0) || scale <= 0 || scale > 1 {
+		return nil, fmt.Errorf("page scale must be greater than 0 and at most 1")
+	}
 	b := src.Bounds()
-	w, h := b.Dx(), b.Dy()
+	w, h := max(1, int(math.Round(float64(b.Dx())*scale))), max(1, int(math.Round(float64(b.Dy())*scale)))
 	sw, sh := p.overlay.Bounds().Dx(), p.overlay.Bounds().Dy()
 	s := p.settings
 	marginX, marginY := s.MarginX, s.MarginY
@@ -215,12 +224,19 @@ func (p *Prepared) Apply(ctx context.Context, src image.Image, paper string) (*i
 	if x < 0 || y < 0 || x+sw > w || y+sh > h {
 		return nil, fmt.Errorf("stamp %dx%d at (%d,%d) does not fit page %dx%d", sw, sh, x, y, w, h)
 	}
+	if !config.PixelsOK(w, h) {
+		return nil, fmt.Errorf("resized page exceeds pixel limit")
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, w, h))
 	draw.Draw(dst, dst.Bounds(), image.White, image.Point{}, draw.Src)
-	draw.Draw(dst, dst.Bounds(), src, b.Min, draw.Over)
+	if scale == 1 {
+		draw.Draw(dst, dst.Bounds(), src, b.Min, draw.Over)
+	} else {
+		xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, b, xdraw.Over, nil)
+	}
 	draw.Draw(dst, image.Rect(x, y, x+sw, y+sh), p.overlay, image.Point{}, draw.Over)
 	return dst, ctx.Err()
 }
