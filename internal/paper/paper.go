@@ -30,6 +30,25 @@ type Size struct {
 
 var sizes = map[string][2]float64{"A1": {594, 841}, "A2": {420, 594}, "A3": {297, 420}, "A4": {210, 297}}
 
+// Reduced returns the output size selected by shrink mode. The orientation of
+// the matched input paper is preserved. A4 and unsupported names are unchanged.
+func (s Size) Reduced() (Size, bool) {
+	target := ""
+	switch s.Name {
+	case "A1", "A2":
+		target = "A3"
+	case "A3":
+		target = "A4"
+	default:
+		return s, false
+	}
+	dimensions := sizes[target]
+	if s.WidthMM > s.HeightMM {
+		dimensions[0], dimensions[1] = dimensions[1], dimensions[0]
+	}
+	return Size{Name: target, WidthMM: dimensions[0], HeightMM: dimensions[1]}, true
+}
+
 // ValidName reports whether name is one of the supported output paper sizes.
 func ValidName(name string) bool { _, ok := sizes[name]; return ok }
 

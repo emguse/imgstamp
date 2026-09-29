@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -33,6 +34,7 @@ type Options struct {
 	Input, Output string
 	Config        config.Config
 	Stamp         *stamp.Prepared
+	Shrink        bool
 	Report        func(Event)
 }
 
@@ -236,7 +238,14 @@ func convert(ctx context.Context, path, target string, o Options) error {
 		if err != nil {
 			return fmt.Errorf("page %d: %w", count, err)
 		}
-		composite, err := o.Stamp.Apply(ctx, img, size.Name)
+		scale := 1.0
+		if o.Shrink {
+			if reduced, ok := size.Reduced(); ok {
+				scale = math.Min(reduced.WidthMM/size.WidthMM, reduced.HeightMM/size.HeightMM)
+				size = reduced
+			}
+		}
+		composite, err := o.Stamp.ApplyScaled(ctx, img, size.Name, scale)
 		if err != nil {
 			return fmt.Errorf("page %d: %w", count, err)
 		}

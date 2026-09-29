@@ -41,3 +41,28 @@ func TestOverridesAndAmbiguity(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestReducedPaperMappings(t *testing.T) {
+	for _, tc := range []struct {
+		name                  string
+		sourceName            string
+		width, height         float64
+		wantName              string
+		wantWidth, wantHeight float64
+		wantReduced           bool
+	}{
+		{"A1 portrait", "A1", 594, 841, "A3", 297, 420, true},
+		{"A1 landscape", "A1", 841, 594, "A3", 420, 297, true},
+		{"A2 portrait", "A2", 420, 594, "A3", 297, 420, true},
+		{"A3 portrait", "A3", 297, 420, "A4", 210, 297, true},
+		{"A3 landscape", "A3", 420, 297, "A4", 297, 210, true},
+		{"A4 unchanged", "A4", 210, 297, "A4", 210, 297, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reduced := (Size{Name: tc.sourceName, WidthMM: tc.width, HeightMM: tc.height}).Reduced()
+			if got.Name != tc.wantName || got.WidthMM != tc.wantWidth || got.HeightMM != tc.wantHeight || reduced != tc.wantReduced {
+				t.Fatalf("Reduced() = %+v, %t; want %s %.0fx%.0f mm, %t", got, reduced, tc.wantName, tc.wantWidth, tc.wantHeight, tc.wantReduced)
+			}
+		})
+	}
+}

@@ -27,7 +27,10 @@ Windows では出力名を `bin/imgstamp.exe` にしてください。実行時�
 ```sh
 bin/imgstamp fonts
 bin/imgstamp --config stamp.toml --input ./drawings --output ./stamped
+bin/imgstamp --config stamp.toml --input ./drawings --output ./stamped --shrink --text "○○プロジェクト 承認済"
 ```
+
+`--shrink` はA1・A2をA3相当、A3をA4相当へ縮小して出力します。A4は縮小しません。図面画像を先に縮小し、スタンプ画像のピクセル寸法は変えずに合成します。縮小後もスタンプの余白値はそのまま使うため、用紙上での余白の割合や配置の見え方は変わります。`--text` は設定ファイルの `stamp.text.value` を実行時だけ上書きします。設定値と同じUnicode文字数が必要で、記入欄に収まらない文字列はエラーになります。
 
 フォントには一覧のフルネームを指定します。TTF・OTF・TTC・OTC の読み取り可能なフォントを OS のユーザー／システムフォントフォルダから探索します。同名のフォントはユーザーフォルダを優先します。フォントの自動ダウンロードや欠落文字の代替表示は行いません。
 

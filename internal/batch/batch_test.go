@@ -89,6 +89,37 @@ func TestSuccessAndSkip(t *testing.T) {
 	}
 	checkNoTemps(t, o.Output)
 }
+
+func TestShrinkModeReducesRasterAndSetsTargetPaper(t *testing.T) {
+	o := setup(t)
+	o.Config.Paper.Rules[0].Paper = "A1"
+	o.Shrink = true
+	writePNG(t, filepath.Join(o.Input, "drawing.png"))
+	var reportedPaper string
+	o.Report = func(e Event) {
+		if e.Status == "processed" {
+			reportedPaper = e.Paper
+		}
+	}
+	result, err := Run(context.Background(), o)
+	if err != nil || result != (Result{Success: 1}) {
+		t.Fatalf("%+v %v", result, err)
+	}
+	data, err := os.ReadFile(filepath.Join(o.Output, "drawing.png.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pdf := string(data)
+	for _, want := range []string{"/Width 50 /Height 100", "/MediaBox [0 0 841.889764 1190.551181]"} {
+		if !strings.Contains(pdf, want) {
+			t.Fatalf("shrunk PDF missing %q", want)
+		}
+	}
+	if reportedPaper != "A3" {
+		t.Fatalf("reported paper = %q, want A3", reportedPaper)
+	}
+}
+
 func TestFailedSecondPageLeavesNoPDFAndContinues(t *testing.T) {
 	o := setup(t)
 	f, err := os.Create(filepath.Join(o.Input, "a.tif"))
