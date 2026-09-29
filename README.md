@@ -14,6 +14,12 @@ go build -o bin/imgstamp ./cmd/imgstamp
 
 Windows では出力名を `bin/imgstamp.exe` にしてください。実行時に Python や外部の画像変換ソフトは不要です。
 
+## GUI 試作
+
+v0.3.0向けのGUI試作は `go run ./cmd/imgstamp-gui` で起動できます。設定ファイル欄の初期値は `./stamp.toml` で、相対パスは起動時の作業ディレクトリを基準にします。入力・出力フォルダ、縮小モード、追記文字列を指定でき、変換自体は既存CLIへ委譲します。
+
+GUIの開発・ビルドにはFyneが必要とするCコンパイラとOSの開発環境が必要です。利用者がビルド済みGUIを実行する際にFyneランタイムを別途インストールする必要はありません。Windows向けGUIのクロスビルドと実機動作は未検証です。[Fyneの開発要件](https://docs.fyne.io/started/quick/)を参照してください。
+
 ## バージョン管理
 
 本体の版番号は Git タグで管理し、配布ビルドには同じ番号を埋め込みます。`v0.1.0` は正式版です。`v0.1.0-rc.1` と `v0.1.0-rc.2` はリリース候補でした。通常の開発ビルドの `--version` は `imgstamp dev` を表示します。[リリース手順](docs/releases.md)と[変更履歴](CHANGELOG.md)を参照してください。
